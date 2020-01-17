@@ -14,7 +14,7 @@ class Stat:
             [metric.name for metric in metrics]
         self.reset()
 
-        log_fieldnames = ['{}_{}'.format(mode, name) for mode, name
+        log_fieldnames = [f'{mode}_{name}' for mode, name
                           in product(['train', 'eval'], self._fieldnames)]
         self._log_writer = csv.DictWriter(
             log_path.open(mode='a', buffering=1), fieldnames=log_fieldnames)
@@ -34,7 +34,7 @@ class Stat:
 
     def log(self):
         self._log_writer.writerow(
-            {'{}_{}'.format(mode, name): self._stat[mode][name]
+            {f'{mode}_{name}': self._stat[mode][name]
              for mode, name in product(['train', 'eval'], self._fieldnames)})
 
     @property
@@ -92,7 +92,7 @@ class BaseTrainer:
         self._model.zero_grad()
 
         bar = tqdm(
-            data_loader, desc='[{} epoch {:2}]'.format(desc_prefix, self._epoch),
+            data_loader, desc=f'[{desc_prefix} epoch {self._epoch:2}]',
             leave=False, position=1, dynamic_ncols=True)
         for idx, batch in enumerate(bar):
             if len(batch) > 0:
@@ -138,4 +138,4 @@ class BaseTrainer:
             self._stat[mode][metric.name] = metric.value
 
     def _save_ckpt(self):
-        self._model.save_state(self._epoch, self._stat.stat, self._ckpt_dir)
+        self._model.save(self._epoch, self._stat.stat, self._ckpt_dir)

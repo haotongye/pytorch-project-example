@@ -103,7 +103,7 @@ class FixedOrderedDict(OrderedDict):
     def __setitem__(self, key, item):
         if key not in self._dictionary:
             raise KeyError(
-                'FixedOrderedDict: The key \'{}\' is not defined.'.format(key))
+                f'FixedOrderedDict: The key \'{key}\' is not defined.')
         self._dictionary[key] = item
 
     def __str__(self):

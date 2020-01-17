@@ -1,0 +1,17 @@
+random_seed: 19
+device: 'cuda:0'
+dataset_dir: '/path/to/dataset'
+data_loader:
+  n_workers: 4
+  batch_size: 32
+optim:
+  weight_decay: 0.0
+  kwargs:
+    lr: 5.0e-5
+    eps: 1.0e-8
+  scheduler:
+    warmup_ratio: 0.0
+train:
+  n_epochs: 3
+  n_gradient_accumulation_steps: 1
+  max_grad_norm: 1.0

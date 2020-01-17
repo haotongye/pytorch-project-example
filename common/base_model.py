@@ -8,8 +8,9 @@ from tqdm import tqdm
 class BaseModel:
     def __init__(self, device, *args, **kwargs):
         self._device = device
-        self._net, self._optim, self._scheduler = \
+        self._net, self._optim, self._schedulers = \
             self._create_net_and_optim(*args, **kwargs)
+        self._net.to(device=self._device)
 
     def _create_net_and_optim(self, *args, **kwargs):
         raise NotImplementedError
@@ -23,10 +24,6 @@ class BaseModel:
     def __call__(self, *args, **kwargs):
         return self._net(*args, **kwargs)
 
-    @property
-    def parameters(self):
-        return self._net.parameters()
-
     def zero_grad(self):
         self._optim.zero_grad()
 
@@ -36,30 +33,49 @@ class BaseModel:
 
     def update(self):
         self._optim.step()
-        if self._scheduler:
-            self._scheduler.step()
+        for scheduler in self._schedulers:
+            scheduler.step()
 
-    def save_state(self, epoch, stat, ckpt_dir):
-        tqdm.write('[*] Saving model state')
-        ckpt_path = ckpt_dir / 'epoch-{}.ckpt'.format(epoch)
+    @property
+    def _states(self):
+        # Overwrite this function to customize the states to save, e.g. only save the
+        # final linear layer of the network
+        return {
+            'net_state': self._net.state_dict(),
+            'optim_state': self._optim.state_dict(),
+            'scheduler_states': [s.state_dict() for s in self._schedulers]
+        }
+
+    @property
+    def _extra_for_save(self):
+        # Overwrite this function to add extra information to save in checkpoint, you
+        # may also want to modify _extra_load()
+        return {}
+
+    def save(self, epoch, stat, ckpt_dir):
+        tqdm.write('[*] Saving model...')
+        ckpt_path = ckpt_dir / f'epoch-{epoch}.ckpt'
         torch.save({
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'epoch': epoch,
             'stat': stat,
-            'net_state': self._net.state_dict(),
-            'optim_state': self._optim.state_dict()
+            'states': self._states,
+            **self._extra_for_save
         }, ckpt_path)
-        tqdm.write('[-] Model state saved to {}\n'.format(ckpt_path))
+        tqdm.write(f'[-] Model saved to {ckpt_path}')
 
-    def load_state(self, ckpt_path):
-        print('[*] Loading model state')
+    def _extra_load(self, ckpt):
+        # Overwrite this function to load extra information from checkpoint
+        pass
+
+    def load(self, ckpt_path):
+        print(f'[*] Loading model state from {ckpt_path}...', end='', flush=True)
         ckpt = torch.load(ckpt_path)
         self._net.load_state_dict(ckpt['net_state'])
-        # self._net.to(device=self._device)
         self._optim.load_state_dict(ckpt['optim_state'])
-        for state in self._optim.state.values():
-            for k, v in state.items():
-                if torch.is_tensor(v):
-                    state[k] = v.to(device=self._device)
+        for i in range(len(self._schedulers)):
+            self._schedulers[i].load_state_dict(ckpt['scheduler_states'][i])
+        self._extra_load(ckpt)
+        print('done')
 
         return ckpt['epoch']

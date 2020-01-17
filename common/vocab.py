@@ -12,7 +12,7 @@ class SpecialVocab:
     def __init__(self, special_tokens):
         self._special_tokens = special_tokens
         for i, tok in enumerate(special_tokens):
-            setattr(self, tok, SpecialToken(sym='<{}>'.format(tok), idx=i))
+            setattr(self, tok, SpecialToken(sym=f'<{tok}>', idx=i))
 
     def __len__(self):
         return len(self._special_tokens)
@@ -36,7 +36,7 @@ def load_embedding(tokens, embedding_path):
         lines = f.readlines()
         emb = {}
         bar = tqdm(
-            lines, desc='[*] Loading embedding from {}'.format(embedding_path),
+            lines, desc=f'[*] Loading embedding from {embedding_path}',
             dynamic_ncols=True)
         for l in bar:
             if '\xa0' in l or '\x85' in l:
