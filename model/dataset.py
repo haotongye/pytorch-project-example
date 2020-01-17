@@ -64,8 +64,15 @@ def create_collate_fn(tokenizer):
         input_ids = torch.stack([i['input_ids'] for i in inputs])
         token_type_ids = torch.stack([i['token_type_ids'] for i in inputs])
         attention_mask = torch.stack([i['attention_mask'] for i in inputs])
-        span_start = torch.tensor([s['answers'][0]['token_span'][0] for s in samples])
-        span_end = torch.tensor([s['answers'][0]['token_span'][1] for s in samples])
+        # +1 accounts for the [CLS] token prepended at the begining
+        span_start = torch.tensor([s['answers'][0]['token_span'][0] + 1 for s in samples])
+        span_end = torch.tensor([s['answers'][0]['token_span'][1] + 1 for s in samples])
+        answerable = torch.tensor([int(not s['is_impossible']) for s in samples])
+
+        context_lens = (token_type_ids == 1).nonzero()[:, 1] - 1
+        context_mask = (torch.arange(input_ids.shape[1]).unsqueeze(0)
+                        < torch.tensor(context_lens).unsqueeze(1)).to(dtype=torch.int64)
+        context_mask[:, 0] = 0
 
         batch = {
             'orig': samples,
@@ -73,7 +80,9 @@ def create_collate_fn(tokenizer):
             'token_type_ids': token_type_ids,
             'attention_mask': attention_mask,
             'span_start': span_start,
-            'span_end': span_end
+            'span_end': span_end,
+            'answerable': answerable,
+            'context_mask': context_mask
         }
 
         return batch

@@ -8,6 +8,7 @@ import ipdb
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.utils.data
 from box import Box
 from transformers import (
@@ -18,7 +19,7 @@ from transformers.tokenization_albert import PRETRAINED_POSITIONAL_EMBEDDINGS_SI
 from common.base_model import BaseModel
 from common.base_trainer import BaseTrainer
 from common.losses import CrossEntropyLoss
-from common.metrics import Accuracy
+from common.metrics import SQuAD, Accuracy
 from common.utils import load_pkl
 
 from .dataset import create_data_loader
@@ -170,9 +171,12 @@ def create_model(cfg, dataset_cfg, train_data_loader, dev_data_loader, device):
 
 
 def create_losses_and_metrics(device):
-    # TODO: Determine losses and metrics
-    losses = []
-    metrics = []
+    losses = [
+        CrossEntropyLoss(
+            device, 'start_logits', 'span_start', name='start', ignore_index=-1),
+        CrossEntropyLoss(device, 'end_logits', 'span_end', name='end', ignore_index=-1),
+        CrossEntropyLoss(device, 'answerable_logits', 'answerable')]
+    metrics = [SQuAD(), Accuracy('answerable')]
 
     return losses, metrics
 
@@ -202,6 +206,26 @@ def get_paths(model_dir, cont):
     return log_path, ckpt_dir, ckpt_path
 
 
+def find_span_from_logits(start_logits, end_logits, context_mask, max_span_len):
+    start_logits = start_logits.masked_fill(context_mask == 0, -math.inf)
+    start_log_probs = F.log_softmax(start_logits.detach(), dim=1)
+    end_logits = end_logits.masked_fill(context_mask == 0, -math.inf)
+    end_log_probs = F.log_softmax(end_logits.detach(), dim=1)
+
+    batch_size, context_len = context_mask.shape
+    log_probs = start_log_probs.unsqueeze(2) + end_log_probs.unsqueeze(1)
+    mask = torch.ones_like(log_probs[0], dtype=torch.uint8)
+    mask = mask.triu().tril(diagonal=max_span_len - 1)
+    mask = torch.stack([mask] * batch_size, dim=0)
+    mask = mask * context_mask.unsqueeze(1) * context_mask.unsqueeze(2)
+    log_probs.masked_fill_(mask == 0, -math.inf)
+    span = log_probs.reshape(batch_size, -1).max(dim=1, keepdim=True)[1]
+    span_start = span / context_len
+    span_end = span % context_len
+
+    return span_start.squeeze_(1), span_end.squeeze_(1)
+
+
 class Trainer(BaseTrainer):
     def _run_batch(self, mode, batch):
         input_ids = batch['input_ids'].to(device=self._device)
@@ -209,8 +233,21 @@ class Trainer(BaseTrainer):
         attention_mask = batch['attention_mask'].to(device=self._device)
         start_logits, end_logits, answerable_logits = \
             self._model(input_ids, token_type_ids, attention_mask)
+        span_start, span_end = find_span_from_logits(
+            start_logits, end_logits, attention_mask, self._cfg.max_span_len)
+        # -1 accounts for the [CLS] token prepended at the begining
+        span_start -= 1
+        span_end -= 1
+        answerable = answerable_logits.max(dim=1)[1]
 
-        # TODO: Determine start and end positions
+        return {
+            'start_logits': start_logits,
+            'end_logits': end_logits,
+            'answerable_logits': answerable_logits,
+            'span_start': span_start,
+            'span_end': span_end,
+            'answerable': answerable
+        }
 
 
 def main(model_dir, device, cont):
