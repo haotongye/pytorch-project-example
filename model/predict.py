@@ -36,8 +36,9 @@ def predict(device, data_loader, model):
 
             output['span_start'] = output['span_start'].tolist()
             output['span_end'] = output['span_end'].tolist()
-            for orig, span_start, span_end in zip(
-                    batch['orig'], output['span_start'], output['span_end']):
+            for orig, span_start, span_end, answerable in zip(
+                    batch['orig'], output['span_start'], output['span_end'],
+                    output['answerable']):
                 _id = orig['id']
                 token_spans = orig['context_token_spans']
                 spans[_id] = {
@@ -51,7 +52,7 @@ def predict(device, data_loader, model):
                     'span_end': span_end
                 })
                 answer = orig['context_preprocessed'][span_start:span_end+1]
-                answers[_id] = answer
+                answers[_id] = answer if answerable == 1 else ''
 
             na_prob = F.softmax(output['answerable_logits'], dim=1)[:, 0].tolist()
             for orig, p in zip(batch['orig'], na_prob):
