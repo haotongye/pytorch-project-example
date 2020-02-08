@@ -99,7 +99,8 @@ class BaseTrainer:
             leave=False, position=2, dynamic_ncols=True)
         for idx, batch in enumerate(bar):
             if len(batch) > 0:
-                output = self._run_batch(mode, batch)
+                _input = self._prepare_input(batch)
+                output = self._model(**_input)
                 loss = self._calculate_losses(mode, output, batch)
                 # loss /= self._cfg.n_gradient_accumulation_steps
             if mode == 'train':
@@ -124,7 +125,7 @@ class BaseTrainer:
         for metric in self._metrics:
             metric.reset()
 
-    def _run_batch(self, batch):
+    def _prepare_input(self, batch):
         raise NotImplementedError
 
     def _calculate_losses(self, mode, output, batch):

@@ -71,10 +71,10 @@ class BaseModel:
     def load(self, ckpt_path):
         print(f'[*] Loading model state from {ckpt_path}...', end='', flush=True)
         ckpt = torch.load(ckpt_path)
-        self._net.load_state_dict(ckpt['net_state'])
-        self._optim.load_state_dict(ckpt['optim_state'])
+        self._net.load_state_dict(ckpt['states']['net_state'])
+        self._optim.load_state_dict(ckpt['states']['optim_state'])
         for i in range(len(self._schedulers)):
-            self._schedulers[i].load_state_dict(ckpt['scheduler_states'][i])
+            self._schedulers[i].load_state_dict(ckpt['states']['scheduler_states'][i])
         self._extra_load(ckpt)
         print('done')
 

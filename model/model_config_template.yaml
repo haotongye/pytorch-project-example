@@ -1,9 +1,11 @@
 random_seed: 19
 device: 'cuda:0'
-dataset_dir: '/path/to/dataset'
+dataset_dir: '/path/to/dataset/directory/'
 data_loader:
   n_workers: 4
   batch_size: 32
+net:
+  max_span_len: 30
 optim:
   weight_decay: 0.0
   kwargs:
@@ -15,4 +17,3 @@ train:
   n_epochs: 3
   n_gradient_accumulation_steps: 8
   max_grad_norm: 1.0
-  max_span_len: 30

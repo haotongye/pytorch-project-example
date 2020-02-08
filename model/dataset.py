@@ -1,4 +1,11 @@
+from pathlib import Path
+
 import torch.utils.data
+from box import Box
+from transformers import AlbertTokenizer
+from transformers.tokenization_albert import PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES
+
+from common.utils import load_pkl
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -105,3 +112,45 @@ def create_data_loader(dataset, tokenizer, n_workers, batch_size, shuffle=True):
         collate_fn=collate_fn)
 
     return data_loader
+
+
+def load_datasets(cfg, only_dev=False):
+    print(f'[*] Loading datasets from {cfg.dataset_dir}')
+    dataset_dir = Path(cfg.dataset_dir)
+    dataset_cfg = Box.from_yaml(filename=Path(cfg.dataset_dir) / 'config.yaml')
+    max_seq_len = PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES[
+        dataset_cfg.tokenizer.pretrained_model_name_or_path]
+
+    dev_dataset = load_pkl(dataset_dir / 'dev.pkl')
+    train_dataset = None
+    if not only_dev:
+        train_dataset = load_pkl(dataset_dir / 'train.pkl')
+        train_dataset.skip_invalid = True
+        train_dataset.max_seq_len = max_seq_len
+    print()
+
+    return dataset_cfg, train_dataset, dev_dataset
+
+
+def create_data_loaders(cfg, only_dev=False):
+    dataset_cfg, train_dataset, dev_dataset = load_datasets(cfg, only_dev=only_dev)
+    print('[*] Creating data loaders')
+    if cfg.data_loader.batch_size % cfg.train.n_gradient_accumulation_steps != 0:
+        print(
+            f'[!] n_gradient_accumulation_steps({cfg.train.n_gradient_accumulation_steps})'
+            f'is not a divider of batch_size({cfg.data_loader.batch_size})')
+        exit(5)
+    cfg.data_loader.batch_size //= cfg.train.n_gradient_accumulation_steps
+    tokenizer = AlbertTokenizer.from_pretrained(**dataset_cfg.tokenizer)
+    if not only_dev:
+        print('[*] Train data loader')
+        train_data_loader = create_data_loader(
+            train_dataset, tokenizer, **cfg.data_loader)
+    print('[*] Dev data loader')
+    dev_data_loader = create_data_loader(dev_dataset, tokenizer, **cfg.data_loader)
+    print()
+
+    if not only_dev:
+        return dataset_cfg, train_data_loader, dev_data_loader
+    else:
+        return dataset_cfg, dev_data_loader
