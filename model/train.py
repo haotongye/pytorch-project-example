@@ -110,8 +110,8 @@ def create_data_loaders(cfg):
 class Net(AlbertPreTrainedModel):
     def __init__(self, config):
         # Hack for this issue(https://github.com/huggingface/transformers/issues/2337)
-        config.attention_probs_dropout_prob = 0
-        config.hidden_dropout_prob = 0
+        # config.attention_probs_dropout_prob = 0
+        # config.hidden_dropout_prob = 0
         super(Net, self).__init__(config)
 
         self.albert = AlbertModel(config)
@@ -137,7 +137,7 @@ class Model(BaseModel):
         net = Net.from_pretrained(**net_cfg)
 
         parameters = list(net.named_parameters())
-        no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+        no_decay = ['bias', 'LayerNorm.weight']
         grouped_parameters = [{
             'params': [p for n, p in parameters if not any(nd in n for nd in no_decay)],
             'weight_decay': optim_cfg.weight_decay
@@ -157,9 +157,9 @@ def create_model(cfg, dataset_cfg, train_data_loader, dev_data_loader, device):
         cfg.net = {}
     cfg.net.pretrained_model_name_or_path = \
         dataset_cfg.tokenizer.pretrained_model_name_or_path
-    num_training_steps = math.ceil(
-        len(train_data_loader.dataset) / cfg.data_loader.batch_size /
-        cfg.train.n_gradient_accumulation_steps) * cfg.train.n_epochs
+    num_training_steps = \
+        math.ceil(len(train_data_loader) / cfg.train.n_gradient_accumulation_steps) \
+        * cfg.train.n_epochs
     num_warmup_steps = int(num_training_steps * cfg.optim.scheduler.warmup_ratio)
     cfg.optim.scheduler.kwargs = {
         'num_warmup_steps': num_warmup_steps,
@@ -231,10 +231,11 @@ class Trainer(BaseTrainer):
         input_ids = batch['input_ids'].to(device=self._device)
         token_type_ids = batch['token_type_ids'].to(device=self._device)
         attention_mask = batch['attention_mask'].to(device=self._device)
+        context_mask = batch['context_mask'].to(device=self._device)
         start_logits, end_logits, answerable_logits = \
             self._model(input_ids, token_type_ids, attention_mask)
         span_start, span_end = find_span_from_logits(
-            start_logits, end_logits, attention_mask, self._cfg.max_span_len)
+            start_logits, end_logits, context_mask, self._cfg.max_span_len)
         # -1 accounts for the [CLS] token prepended at the begining
         span_start -= 1
         span_end -= 1

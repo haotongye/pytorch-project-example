@@ -94,10 +94,14 @@ class BaseTrainer:
         bar = tqdm(
             data_loader, desc=f'[{desc_prefix} epoch {self._epoch:2}]',
             leave=False, position=1, dynamic_ncols=True)
+        metric_bar = tqdm(
+            [0], desc='[Metric display]', bar_format='{desc}: {postfix}',
+            leave=False, position=2, dynamic_ncols=True)
         for idx, batch in enumerate(bar):
             if len(batch) > 0:
                 output = self._run_batch(mode, batch)
                 loss = self._calculate_losses(mode, output, batch)
+                # loss /= self._cfg.n_gradient_accumulation_steps
             if mode == 'train':
                 if len(batch) > 0:
                     loss.backward()
@@ -110,8 +114,9 @@ class BaseTrainer:
                     self._model.zero_grad()
             if len(batch) > 0:
                 self._calculate_metrics(mode, output, batch)
-            bar.set_postfix_str(str(self._stat[mode]))
+            metric_bar.set_postfix_str('\b\b' + str(self._stat[mode]))
         bar.close()
+        metric_bar.close()
 
     def _reset_losses_and_metrics(self):
         for loss in self._losses:
@@ -128,7 +133,7 @@ class BaseTrainer:
             total_loss += loss.update(output, batch)
             self._stat[mode][loss.name] = loss.value
         if len(self._losses) > 1:
-            self._stat[mode]['total_loss'] = total_loss.item()
+            self._stat[mode]['total_loss'] = sum([loss.value for loss in self._losses])
 
         return total_loss
 

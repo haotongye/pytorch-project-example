@@ -41,7 +41,7 @@ def load_data(data_path):
         for p in d['paragraphs']:
             context = p['context']
             for qa in p['qas']:
-                if qa['is_impossible'] == 0:
+                if qa['is_impossible']:
                     qa['answers'].append({
                         'text': '',
                         'answer_start': -1

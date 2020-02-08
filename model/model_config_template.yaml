@@ -13,5 +13,6 @@ optim:
     warmup_ratio: 0.0
 train:
   n_epochs: 3
-  n_gradient_accumulation_steps: 1
+  n_gradient_accumulation_steps: 8
   max_grad_norm: 1.0
+  max_span_len: 30

@@ -54,15 +54,15 @@ class SQuAD(Metric):
         self._n = 0
 
     def update(self, output, batch):
-        for orig, start_pos, end_pos in zip(
+        for orig, span_start, span_end in zip(
                 batch['orig'], output['span_start'], output['span_end']):
             gold_answers = [a['text'] for a in orig['answers']]
             if not gold_answers:
                 gold_answers = ['']
             token_spans = orig['context_token_spans']
-            start_pos = token_spans[start_pos][0]
-            end_pos = token_spans[end_pos][1]
-            pred = orig['context_preprocessed'][start_pos:end_pos+1]
+            span_start = token_spans[span_start][0]
+            span_end = token_spans[span_end][1]
+            pred = orig['context_preprocessed'][span_start:span_end+1]
             self._em_sum += max(squad_em(ga, pred) for ga in gold_answers)
             self._f1_sum += max(squad_f1(ga, pred) for ga in gold_answers)
             self._n += 1
