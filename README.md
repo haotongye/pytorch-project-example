@@ -1,4 +1,8 @@
 # pytorch-project-example
+This repository hosts my usual pipeline and template code for working with a
+[PyTorch](https://pytorch.org/) project. An example usage of applying
+[transformers](https://github.com/huggingface/transformers) `albert-base-v2` model on
+[SQuAD2.0](https://rajpurkar.github.io/SQuAD-explorer/).
 
 
 ## Requirements
@@ -72,3 +76,8 @@ python scripts/squad2_evaluate.py ./data/dev-v2.0.json ./models/suqad2_albert-ba
 
 
 <!-- ## Preprocessed Datasets and Model Checkpoints -->
+<!-- You can download prerpcessd datasets and model checkpoints and skip the dataset creation -->
+<!-- and training steps. -->
+
+
+<!-- ## Limitations -->
