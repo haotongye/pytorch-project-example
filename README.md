@@ -2,7 +2,7 @@
 This repository hosts my usual pipeline and template code for working with a
 [PyTorch](https://pytorch.org/) project. An example usage of applying
 [transformers](https://github.com/huggingface/transformers) `albert-base-v2` model on
-[SQuAD2.0](https://rajpurkar.github.io/SQuAD-explorer/).
+[SQuAD2.0](https://rajpurkar.github.io/SQuAD-explorer/) is provided.
 
 
 ## Requirements
