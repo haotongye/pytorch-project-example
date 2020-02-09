@@ -1,6 +1,6 @@
 from collections import namedtuple
 
-# import fastText
+import fastText
 import numpy as np
 from tqdm import tqdm
 
@@ -51,10 +51,10 @@ def load_embedding(tokens, embedding_path):
 
 
 def create_fasttext_embedding(tokens, bin_path):
-    # model = fastText.load_model(bin_path)
-    # emb = {tok: model.get_word_vector(tok) for tok in tokens}
+    model = fastText.load_model(bin_path)
+    emb = {tok: model.get_word_vector(tok) for tok in tokens}
 
-    # return emb
+    return emb
     return {}
 
 

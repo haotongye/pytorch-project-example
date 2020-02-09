@@ -17,6 +17,21 @@ matplotlib
 ```
 
 
+## Project Structure
+
+### *common/*
+- Model and trainer base classes which supports operations like saving/loading
+model checkpoints, continue training, etc. 
+- Customizable metrics and losses that work with the trainer.
+- Utilities functions like saving/loading json files, setting random seed, etc.
+
+### *model/*
+This directory contains task-specific code and config for dataset/model.
+
+### *scripts/*
+Useful scripts for data cleaning, evaluation, etc.
+
+
 ## Usage
 
 ### Preparation
@@ -45,6 +60,8 @@ then it should be `./data/`.)
 ```
 python -m model.create_dataset ./datasets/squad2_albert-base-v2/
 ```
+Tokenized datasets *train.pkl* and *dev.pkl* will be saved under
+*./datasets/squad2_albert-base-v2/*.
 
 ### Train
 1. Create a model directory.
@@ -62,6 +79,12 @@ cp ./model/model_config_template.yaml ./models/squad2_albert-base-v2/config.yaml
 ```
 python -m model.train ./models/suqad2_albert-base-v2/
 ```
+5. Monitor training log.
+```
+tail -f ./models/suqad2_albert-base-v2/log.csv
+```
+After training is completed, model checkpoints can be found at
+*./models/suqad2_albert-base-v2/ckpts/*.
 
 ### Predict
 ```
@@ -70,15 +93,11 @@ python -m model.predict ./datasets/squad2_albert-base-v2/dev.pkl ./models/suqad2
 Predictions will be saved to `./models/suqad2_albert-base-v2/predictions/`.
 
 ### Evaluate
+Run
 ```
 python scripts/squad2_evaluate.py ./data/dev-v2.0.json ./models/suqad2_albert-base-v2/predictions/epoch-3_answer.json --na-prob-file models/suqad2_albert-base-v2/predictions/epoch-3_na_prob.json
 ```
-
-
-## Preprocessed Datasets and Model Checkpoints
-You can download prerpcessd datasets and model checkpoints and skip the dataset creation
-and training steps.
-Using model checkpoints of the 3rd epoch, the performance on the development set is
+Output:
 ```
 {
     "exact": 76.27389876189675,
@@ -96,9 +115,13 @@ Using model checkpoints of the 3rd epoch, the performance on the development set
     "best_f1_thresh": 0.11277145147323608
 }
 ```
+(Numbers may differ slightly on your machine.)
 
 
 ## Limitations
+Framework in this repo works really well for supervised NLP tasks. It may need some
+extensions in order to incorporate more complicated projects, e.g. RL or GAN, .
 
 
 ## Licence
+This project is licensed under the terms of the [MIT license](LICENSE.txt).
