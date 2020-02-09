@@ -120,7 +120,7 @@ Output:
 
 ## Limitations
 Framework in this repo works really well for supervised NLP tasks. It may need some
-extensions in order to incorporate more complicated projects, e.g. RL or GAN, .
+extensions in order to incorporate more complicated projects like RL or GAN.
 
 
 ## Licence
