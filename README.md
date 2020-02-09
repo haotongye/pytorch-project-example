@@ -75,9 +75,30 @@ python scripts/squad2_evaluate.py ./data/dev-v2.0.json ./models/suqad2_albert-ba
 ```
 
 
-<!-- ## Preprocessed Datasets and Model Checkpoints -->
-<!-- You can download prerpcessd datasets and model checkpoints and skip the dataset creation -->
-<!-- and training steps. -->
+## Preprocessed Datasets and Model Checkpoints
+You can download prerpcessd datasets and model checkpoints and skip the dataset creation
+and training steps.
+Using model checkpoints of the 3rd epoch, the performance on the development set is
+```
+{
+    "exact": 76.27389876189675,
+    "f1": 80.09090869478733,
+    "total": 11873,
+    "HasAns_exact": 73.65047233468286,
+    "HasAns_f1": 81.29543841653317,
+    "HasAns_total": 5928,
+    "NoAns_exact": 78.88982338099242,
+    "NoAns_f1": 78.88982338099242,
+    "NoAns_total": 5945,
+    "best_exact": 77.57938179061736,
+    "best_exact_thresh": 0.11266700178384781,
+    "best_f1": 80.99138345067499,
+    "best_f1_thresh": 0.11277145147323608
+}
+```
 
 
-<!-- ## Limitations -->
+## Limitations
+
+
+## Licence

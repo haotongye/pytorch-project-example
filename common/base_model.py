@@ -68,9 +68,9 @@ class BaseModel:
         # Overwrite this function to load extra information from checkpoint
         pass
 
-    def load(self, ckpt_path):
+    def load(self, ckpt_path, device):
         print(f'[*] Loading model state from {ckpt_path}...', end='', flush=True)
-        ckpt = torch.load(ckpt_path)
+        ckpt = torch.load(ckpt_path, map_location=device)
         self._net.load_state_dict(ckpt['states']['net_state'])
         self._optim.load_state_dict(ckpt['states']['optim_state'])
         for i in range(len(self._schedulers)):

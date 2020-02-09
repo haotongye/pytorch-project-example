@@ -109,6 +109,6 @@ def create_model(
     }
     model = Model(device, cfg.net, cfg.optim)
     if ckpt_path:
-        model.load(ckpt_path)
+        model.load(ckpt_path, device)
 
     return model

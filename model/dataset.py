@@ -127,6 +127,8 @@ def load_datasets(cfg, only_dev=False):
         train_dataset = load_pkl(dataset_dir / 'train.pkl')
         train_dataset.skip_invalid = True
         train_dataset.max_seq_len = max_seq_len
+        dev_dataset.skip_invalid = True
+        dev_dataset.max_seq_len = max_seq_len
     print()
 
     return dataset_cfg, train_dataset, dev_dataset
