@@ -77,25 +77,25 @@ cp ./model/model_config_template.yaml ./models/squad2_albert-base-v2/config.yaml
 `./datasets/squad2_albert-base-v2/`.)
 4. Train the model.
 ```
-python -m model.train ./models/suqad2_albert-base-v2/
+python -m model.train ./models/squad2_albert-base-v2/
 ```
 5. Monitor training log.
 ```
-tail -f ./models/suqad2_albert-base-v2/log.csv
+tail -f ./models/squad2_albert-base-v2/log.csv
 ```
 After training is completed, model checkpoints can be found at
-*./models/suqad2_albert-base-v2/ckpts/*.
+*./models/squad2_albert-base-v2/ckpts/*.
 
 ### Predict
 ```
-python -m model.predict ./datasets/squad2_albert-base-v2/dev.pkl ./models/suqad2_albert-base-v2/ckpts/epoch-3.ckpt
+python -m model.predict ./datasets/squad2_albert-base-v2/dev.pkl ./models/squad2_albert-base-v2/ckpts/epoch-3.ckpt
 ```
-Predictions will be saved to `./models/suqad2_albert-base-v2/predictions/`.
+Predictions will be saved to `./models/squad2_albert-base-v2/predictions/`.
 
 ### Evaluate
 Run
 ```
-python scripts/squad2_evaluate.py ./data/dev-v2.0.json ./models/suqad2_albert-base-v2/predictions/epoch-3_answer.json --na-prob-file models/suqad2_albert-base-v2/predictions/epoch-3_na_prob.json
+python scripts/squad2_evaluate.py ./data/dev-v2.0.json ./models/squad2_albert-base-v2/predictions/epoch-3_answer.json --na-prob-file models/squad2_albert-base-v2/predictions/epoch-3_na_prob.json
 ```
 Output:
 ```
