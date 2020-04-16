@@ -3,6 +3,7 @@ import json
 import pickle
 import random
 from collections import OrderedDict
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -33,88 +34,56 @@ class FixedOrderedDict(OrderedDict):
         return self._dictionary
 
 
-def load_csv(csv_path, verbose=True, **kwargs):
+def load_file(path, verbose=True, **kwargs):
     if verbose:
-        print(f'[*] Loading from {csv_path}...', end='', flush=True)
-    with open(csv_path) as f:
-        reader = csv.DictReader(f, **kwargs)
-        result = [row for row in reader]
-    if verbose:
-        print('done')
-
-    return result
-
-
-def save_csv(data, fieldnames, csv_path, verbose=True, **kwargs):
-    if verbose:
-        print(f'[*] Saving to {csv_path}...', end='', flush=True)
-    with open(csv_path, 'w') as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, **kwargs)
-        writer.writeheader()
-        writer.writerows(data)
-    if verbose:
-        print('done')
-
-
-def load_json(json_path, verbose=True):
-    if verbose:
-        print(f'[*] Loading from {json_path}...', end='', flush=True)
-    with open(json_path) as f:
-        result = json.load(f)
+        print(f'[*] Loading {path}...', end='', flush=True)
+    path = Path(path)
+    file_type = path.suffix[1:]
+    if file_type == 'csv':
+        with path.open() as f:
+            reader = csv.DictReader(f, **kwargs)
+            result = [row for row in reader]
+    elif file_type == 'json':
+        with open(path) as f:
+            result = json.load(f)
+    elif file_type == 'jsonl':
+        with open(path) as f:
+            lines = f.readlines()
+            result = [json.loads(l) for l in lines]
+    elif file_type == 'pkl':
+        with open(path, mode='rb') as f:
+            result = pickle.load(f)
+    else:
+        raise ValueError(f'load_file does not support {file_type}')
     if verbose:
         print('done')
 
     return result
 
 
-def save_json(data, json_path, verbose=True):
+def save_object(obj, path, verbose=True, **kwargs):
     if verbose:
-        print(f'[*] Saving to {json_path}...', end='', flush=True)
-    with open(json_path, 'w') as f:
-        json.dump(data, f)
-    if verbose:
-        print('done')
-
-
-def load_jsonl(jsonl_path, verbose=True):
-    if verbose:
-        print(f'[*] Loading from {jsonl_path}...', end='', flush=True)
-    with open(jsonl_path) as f:
-        lines = f.readlines()
-        result = [json.loads(l) for l in lines]
-    if verbose:
-        print('done')
-
-    return result
-
-
-def save_jsonl(data, jsonl_path, verbose=True):
-    if verbose:
-        print(f'[*] Saving to {jsonl_path}...', end='', flush=True)
-    with open(jsonl_path, 'w') as f:
-        lines = [json.dumps(d) for d in data]
-        for l in lines:
-            f.write(l + '\n')
-    if verbose:
-        print('done')
-
-
-def load_pkl(pkl_path, verbose=True):
-    if verbose:
-        print(f'[*] Loading from {pkl_path}...', end='', flush=True)
-    with open(pkl_path, mode='rb') as f:
-        obj = pickle.load(f)
-    if verbose:
-        print('done')
-
-    return obj
-
-
-def save_pkl(obj, pkl_path, verbose=True):
-    if verbose:
-        print(f'[*] Saving to {pkl_path}...', end='', flush=True)
-    with open(pkl_path, mode='wb') as f:
-        pickle.dump(obj, f)
+        print(f'[*] Saving to {path}...', end='', flush=True)
+    path = Path(path)
+    file_type = path.suffix[1:]
+    if file_type == 'csv':
+        with open(path, 'w') as f:
+            writer = csv.DictWriter(f, **kwargs)
+            writer.writeheader()
+            writer.writerows(obj)
+    elif file_type == 'json':
+        with open(path, 'w') as f:
+            json.dump(obj, f, ensure_ascii=False)
+    elif file_type == 'jsonl':
+        with open(path, 'w') as f:
+            lines = [json.dumps(d) for d in obj]
+            for l in lines:
+                f.write(l + '\n')
+    elif file_type == 'pkl':
+        with open(path, mode='wb') as f:
+            pickle.dump(obj, f)
+    else:
+        raise ValueError(f'load_file does not support {file_type}')
     if verbose:
         print('done')
 
@@ -125,7 +94,9 @@ def load_model_config(model_dir):
     except FileNotFoundError:
         print(f'[!] Model directory({model_dir}) must contain config.yaml')
         exit(1)
-    print(f'[-] Model checkpoints and training log will be saved to {model_dir}\n')
+    if 'net' not in cfg:
+        cfg.net = {}
+    cfg.dataset_dir = Path(cfg.dataset_dir)
 
     return cfg
 

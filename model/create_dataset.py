@@ -35,7 +35,7 @@ def load_data(data_path):
             'span': span
         }
 
-    raw_data = utils.load_json(data_path)
+    raw_data = utils.load_file(data_path)
     data = []
     for d in raw_data['data']:
         for p in d['paragraphs']:
@@ -111,7 +111,7 @@ def create_dataset(data, dataset_dir):
         dataset = Dataset(d)
         print(f'[#] Dataset size: {len(dataset):,}')
         dataset_path = (dataset_dir / f'{m}.pkl')
-        utils.save_pkl(dataset, dataset_path)
+        utils.save_object(dataset, dataset_path)
         print()
 
 

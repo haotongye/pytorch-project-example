@@ -20,14 +20,12 @@ class Net(AlbertPreTrainedModel):
 
         self.albert = AlbertModel(config)
         self.span_linear = nn.Linear(config.hidden_size, 2)
-        self.answerable_linear = nn.Linear(config.hidden_size, 2)
+        self.answerable_linear = nn.Linear(config.hidden_size, 1)
 
         self.init_weights()
 
     def _find_span_from_logits(self, start_logits, end_logits, context_mask):
-        start_logits = start_logits.masked_fill(context_mask == 0, -math.inf)
         start_log_probs = F.log_softmax(start_logits.detach(), dim=1)
-        end_logits = end_logits.masked_fill(context_mask == 0, -math.inf)
         end_log_probs = F.log_softmax(end_logits.detach(), dim=1)
 
         batch_size, context_len = context_mask.shape
@@ -50,14 +48,16 @@ class Net(AlbertPreTrainedModel):
         start_logits, end_logits = logits.split(1, dim=2)
         start_logits = start_logits.squeeze(2)
         end_logits = end_logits.squeeze(2)
-        answerable_logits = self.answerable_linear(pooler_output)
+        start_logits = start_logits.masked_fill(context_mask == 0, -math.inf)
+        end_logits = end_logits.masked_fill(context_mask == 0, -math.inf)
+        answerable_logits = self.answerable_linear(pooler_output).squeeze(1)
 
         span_start, span_end = self._find_span_from_logits(
             start_logits, end_logits, context_mask)
         # -1 accounts for the [CLS] token prepended at the begining
         span_start -= 1
         span_end -= 1
-        answerable = answerable_logits.max(dim=1)[1]
+        answerable = answerable_logits.sigmoid() > 0.5
 
         return {
             'start_logits': start_logits,
@@ -88,16 +88,11 @@ class Model(BaseModel):
         return net, optim, [scheduler]
 
 
-def create_model(
-        cfg, dataset_cfg, train_data_loader, dev_data_loader, device, ckpt_path=None):
+def create_model(cfg, device, train_data_loader_size=0, ckpt_path=None):
     print('[*] Creating model\n')
-    if 'net' not in cfg:
-        cfg.net = {}
-    cfg.net.pretrained_model_name_or_path = \
-        dataset_cfg.tokenizer.pretrained_model_name_or_path
-    if train_data_loader:
+    if train_data_loader_size > 0:
         num_training_steps_per_epoch = \
-            len(train_data_loader) / cfg.train.n_gradient_accumulation_steps
+            train_data_loader_size / cfg.train.n_gradient_accumulation_steps
         num_training_steps = \
             math.ceil(num_training_steps_per_epoch) * cfg.train.n_epochs
         num_warmup_steps = int(num_training_steps * cfg.optim.scheduler.warmup_ratio)

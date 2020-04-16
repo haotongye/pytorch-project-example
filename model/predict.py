@@ -4,21 +4,24 @@ from pathlib import Path
 
 import ipdb
 import torch
-import torch.nn.functional as F
+from box import Box
 from tqdm import tqdm
 
-from common.utils import load_model_config, get_torch_device, set_random_seed, save_json
+from common.utils import load_model_config, get_torch_device, set_random_seed, save_object
 from .dataset import create_data_loaders
 from .model import create_model
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('dataset_path', type=Path, help='Dataset path')
     parser.add_argument('ckpt_path', type=Path, help='Model checkpoint path')
+    parser.add_argument('--dataset_path', type=Path, help='Dataset path')
+    parser.add_argument(
+        '--data_split', type=str, default='dev', choices=['train', 'dev', 'test'],
+        help='Which set to use')
+    parser.add_argument('--batch_size', type=int, help='Inference batch size')
     parser.add_argument(
         '--device', type=str, help='Computing device, e.g. \'cpu\', \'cuda:1\'')
-    parser.add_argument('--batch_size', type=int, help='Inference batch size')
     args = parser.parse_args()
 
     return vars(args)
@@ -27,7 +30,7 @@ def parse_args():
 def predict(device, data_loader, model):
     model.set_eval()
     input_keys = ['input_ids', 'token_type_ids', 'attention_mask', 'context_mask']
-    answers, spans, na_probs = {}, {}, {}
+    answers, predictions = {}, {}
     with torch.no_grad():
         bar = tqdm(data_loader, desc='[*] Predict', dynamic_ncols=True)
         for batch in bar:
@@ -36,52 +39,73 @@ def predict(device, data_loader, model):
 
             output['span_start'] = output['span_start'].tolist()
             output['span_end'] = output['span_end'].tolist()
-            for orig, span_start, span_end, answerable in zip(
+            for orig, span_start, span_end, answerable, answerable_logits in zip(
                     batch['orig'], output['span_start'], output['span_end'],
-                    output['answerable']):
+                    output['answerable'], output['answerable_logits']):
                 _id = orig['id']
                 token_spans = orig['context_token_spans']
-                spans[_id] = {
+                predictions[_id] = {
                     'token_span_start': span_start,
                     'token_span_end': span_end,
                 }
                 span_start = token_spans[span_start][0]
                 span_end = token_spans[span_end][1]
-                spans[_id].update({
+                predictions[_id].update({
                     'span_start': span_start,
                     'span_end': span_end
                 })
-                answer = orig['context_preprocessed'][span_start:span_end+1]
-                answers[_id] = answer if answerable == 1 else ''
-
-            na_prob = F.softmax(output['answerable_logits'], dim=1)[:, 0].tolist()
-            for orig, p in zip(batch['orig'], na_prob):
-                na_probs[orig['id']] = p
+                answer_text = orig['context'][span_start:span_end+1]
+                predictions[_id].update({
+                    'answer_text': answer_text,
+                    'answerable_prob': answerable_logits.sigmoid().item()
+                })
+                answers[_id] = answer_text if answerable == 1 else ''
 
         bar.close()
 
-    return answers, spans, na_probs
+    na_probs = {k: 1 - v['answerable_prob'] for k, v in predictions.items()}
+
+    return answers, na_probs, predictions
 
 
-def main(dataset_path, ckpt_path, device, batch_size):
+def main(ckpt_path, dataset_path, data_split, batch_size, device):
+    # Load model config and set random seed
+    model_dir = ckpt_path.parent.parent
+    cfg = load_model_config(model_dir)
+    set_random_seed(cfg.random_seed)
+
+    # Load tokenizer config
+    dataset_cfg = Box.from_yaml(filename=cfg.dataset_dir / 'config.yaml')
+    tokenizer_cfg = dataset_cfg.tokenizer
+
+    # Determine dataset path. If dataset_path is not given, then the training datasets
+    # will be used, and data_split specifies which set to use.
+    if not dataset_path:
+        dataset_path = cfg.dataset_dir / f'{data_split}.pkl'
     print(f'[-] Dataset: {dataset_path}')
     print(f'[-] Model checkpoint: {ckpt_path}\n')
 
-    model_dir = ckpt_path.parent.parent
-    cfg = load_model_config(model_dir)
+    # Create data loader
+    if batch_size:
+        cfg.data_loader.batch_size = batch_size
+    data_loader = create_data_loaders(
+        cfg.data_loader, tokenizer_cfg, dataset_path, is_train=False)
+
+    # Set torch device and create model
     device = get_torch_device(device, cfg.get('device'))
-    set_random_seed(cfg.random_seed)
-    dataset_cfg, data_loader = create_data_loaders(cfg, only_dev=True)
-    model = create_model(
-        cfg, dataset_cfg, None, data_loader, device, ckpt_path=ckpt_path)
-    answers, spans, na_probs = predict(device, data_loader, model)
+    cfg.net.pretrained_model_name_or_path = tokenizer_cfg.pretrained_model_name_or_path
+    model = create_model(cfg, device, ckpt_path=ckpt_path)
+
+    # Make predictions and save the results
+    answers, na_probs, predictions = predict(device, data_loader, model)
     prediction_dir = model_dir / 'predictions'
     if not prediction_dir.exists():
         prediction_dir.mkdir(parents=True)
         print(f'[-] Predictions directory created at {prediction_dir}\n')
-    save_json(answers, prediction_dir / f'{ckpt_path.stem}_answer.json')
-    save_json(spans, prediction_dir / f'{ckpt_path.stem}_span.json')
-    save_json(na_probs, prediction_dir / f'{ckpt_path.stem}_na_prob.json')
+    prediction_path_prefix = f'{ckpt_path.stem}_{dataset_path.stem}'
+    save_object(answers, prediction_dir / f'{prediction_path_prefix}_answer.json')
+    save_object(predictions, prediction_dir / f'{prediction_path_prefix}_prediction.json')
+    save_object(na_probs, prediction_dir / f'{prediction_path_prefix}_{ckpt_path.stem}_na_prob.json')
 
 
 if __name__ == "__main__":
